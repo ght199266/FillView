@@ -12,7 +12,6 @@ import android.graphics.Region;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.animation.AccelerateInterpolator;
 import android.widget.ImageView;
 
@@ -30,7 +29,6 @@ public class FillView extends ImageView {
 
     private Paint mPaint;
 
-    //中心X和Y坐标
     private int mCenterX;
     private int mCenterY;
 
@@ -53,11 +51,36 @@ public class FillView extends ImageView {
      */
     private int mRadies;
 
-
+    /**
+     * 最大扩散半径
+     */
     private int mMaxRadies;
 
+    /**
+     * 动画持续时间
+     */
+    private int mDuration = 350;
 
-    private Bitmap mCheckBitmp;
+
+    /**
+     * 选中的图片
+     */
+    private Bitmap mCheckBitmap;
+
+    /**
+     * 是否选中
+     */
+    private boolean mChecked = false;
+
+    /**
+     * 是否绘制完成
+     */
+    private boolean isDrawComplete;
+
+    /**
+     * 是否首次
+     */
+    private boolean isFirst = true;
 
     public FillView(Context context) {
         this(context, null);
@@ -80,12 +103,11 @@ public class FillView extends ImageView {
         Drawable checkDrawable = typedArray.getDrawable(R.styleable.fill__view_styleable_checkImage);
         BitmapDrawable bitmapDrawable = (BitmapDrawable) checkDrawable;
         if (bitmapDrawable != null) {
-            mCheckBitmp = bitmapDrawable.getBitmap();
-//            mMaxRadies = mCheckBitmp.getWidth() / 2;
-//            Log.v("test", "mCheckBitmp:=" + mMaxRadies);
+            mCheckBitmap = bitmapDrawable.getBitmap();
         }
         typedArray.recycle();
     }
+
 
     /**
      * 初始化View
@@ -94,14 +116,6 @@ public class FillView extends ImageView {
         mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mPaint.setColor(Color.parseColor("#f2f2f2"));
         mPath = new Path();
-
-
-//        mCheckBitmp = BitmapFactory.decodeResource(getResources(),R.mipmap.)
-    }
-
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
 
     @Override
@@ -111,17 +125,27 @@ public class FillView extends ImageView {
         mCenterY = getHeight() / 2;
 
         mMaxRadies = getWidth() > getHeight() ? getWidth() : getHeight();
-        Log.v("test", "mMaxRadies" + mMaxRadies);
 
-        if (mCheckBitmp == null) {
+        if (mCheckBitmap == null) {
             return;
         }
-        mPath.addCircle(mCenterX, mCenterY, mRadies / 2 + 2, Path.Direction.CW);
+        if (mRadies > 0) {
+            mRadies += 2;
+        }
+        mPath.addCircle(mCenterX, mCenterY, Math.round(mRadies / 2f), Path.Direction.CW);
         canvas.clipPath(mPath, Region.Op.INTERSECT);
         mPaint.setAlpha(mAlpha);
-        canvas.drawCircle(mCenterX, mCenterY, mCheckBitmp.getWidth() / 2, mPaint);
-        canvas.drawBitmap(mCheckBitmp, mCenterX - mCheckBitmp.getWidth() / 2, mCenterY - mCheckBitmp.getHeight() / 2, mPaint);
+        canvas.drawCircle(mCenterX, mCenterY, mCheckBitmap.getWidth() / 2, mPaint);
+        canvas.drawBitmap(mCheckBitmap, mCenterX - Math.round(mCheckBitmap.getWidth() / 2f), mCenterY - Math.round(mCheckBitmap.getHeight() / 2f), mPaint);
+        isDrawComplete = true;
+
+        if (isChecked() && isFirst) {
+            isFirst = false;
+            refreshState();
+        }
+//        }
     }
+
 
     /**
      * 是否选中
@@ -129,34 +153,54 @@ public class FillView extends ImageView {
      * @param isCheck
      */
     public void check(boolean isCheck) {
-        if (isCheck) {
-            mAlpha = 255;
-            mRadies = 0;
-            mPath.reset();
-            Log.v("test", "mMaxRadies:=" + mMaxRadies);
-            ValueAnimator valueAnimator = ValueAnimator.ofInt(0, mMaxRadies);
-            valueAnimator.setDuration(300);
-            valueAnimator.setInterpolator(new AccelerateInterpolator());
-            valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    mRadies = (int) animation.getAnimatedValue();
-                    invalidate();
-                }
-            });
-            valueAnimator.start();
-        } else {
-            ValueAnimator valueAnimator = ValueAnimator.ofInt(mAlpha, 0);
-            valueAnimator.setDuration(300);
-            valueAnimator.setInterpolator(new AccelerateInterpolator());
-            valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    mAlpha = (int) animation.getAnimatedValue();
-                    invalidate();
-                }
-            });
-            valueAnimator.start();
+        if (mChecked != isCheck) {
+            mChecked = isCheck;
+            if (isDrawComplete) {
+                refreshState();
+            }
         }
     }
+
+
+    /**
+     * 是否选中
+     */
+    public boolean isChecked() {
+        return mChecked;
+    }
+
+    /**
+     * 刷新view状态
+     */
+    private void refreshState() {
+        if (mChecked) {
+            reset();
+        }
+        ValueAnimator valueAnimator = mChecked ? ValueAnimator.ofInt(0, mMaxRadies) : ValueAnimator.ofInt(mAlpha, 0);
+        valueAnimator.setDuration(mDuration);
+        valueAnimator.setInterpolator(new AccelerateInterpolator());
+        valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                if (mChecked) {
+                    mRadies = (int) animation.getAnimatedValue();
+                } else {
+                    mAlpha = (int) animation.getAnimatedValue();
+                }
+                invalidate();
+            }
+        });
+        valueAnimator.start();
+    }
+
+    /**
+     * 重置view状态
+     */
+    private void reset() {
+        mAlpha = 255;
+        mRadies = 0;
+        mPath.reset();
+    }
+
+
 }

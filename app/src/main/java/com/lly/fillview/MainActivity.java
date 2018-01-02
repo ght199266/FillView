@@ -30,13 +30,13 @@ public class MainActivity extends AppCompatActivity {
         tv_find = (TextView) findViewById(R.id.tv_find);
 
 
-        fill_iv_home.postDelayed(new Runnable() {
-            @Override
-            public void run() {
+//        fill_iv_home.postDelayed(new Runnable() {
+//            @Override
+//            public void run() {
                 fill_iv_home.check(true);
                 tv_home.setTextColor(Color.parseColor("#06C1AE"));
-            }
-        }, 200);
+//            }
+//        }, 200);
 
         fill_iv_home.setOnClickListener(new View.OnClickListener() {
             @Override
